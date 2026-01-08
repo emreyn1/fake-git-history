@@ -1,9 +1,10 @@
-const process = require("process");
-const { exec } = require("child_process");
-const util = require("util");
-const { existsSync } = require("fs");
+import process from "process";
+import { exec } from "child_process";
+import util from "util";
+import { existsSync } from "fs";
 const execAsync = util.promisify(exec);
-const {
+
+import {
   parse,
   addDays,
   addYears,
@@ -11,14 +12,16 @@ const {
   setMinutes,
   setSeconds,
   getDay
-} = require("date-fns");
-const chalk = require("chalk");
-const ora = require("ora");
-const boxen = require("boxen");
-// Import visualization function
-const generateActivityVisualization = require("./visualization");
+} from "date-fns";
 
-module.exports = function({
+import chalk from "chalk";
+import ora from "ora";
+import boxen from "boxen";
+
+// Import visualization function
+import generateActivityVisualization from "./visualization.js";
+
+export default function({
   commitsPerDay,
   frequency,
   startDate,
@@ -27,8 +30,12 @@ module.exports = function({
   preview
 }) {
   // Parse dates once to avoid inconsistencies
-  const startDateObj = startDate ? parse(startDate) : addYears(new Date(), -1);
-  const endDateObj = endDate ? parse(endDate) : new Date();
+  const startDateObj = startDate
+    ? parse(startDate, "yyyy/MM/dd", new Date())
+    : addYears(new Date(), -1);
+  const endDateObj = endDate
+    ? parse(endDate, "yyyy/MM/dd", new Date())
+    : new Date();
 
   const commitDateList = createCommitDateList({
     commitsPerDay: commitsPerDay.split(","),
@@ -75,9 +82,11 @@ module.exports = function({
       }).format(date);
       spinner.text = `Generating your Github activity... (${dateFormatted})\n`;
 
-      await execAsync(`echo "${date}" > foo.txt`);
+      await execAsync(`echo "${date.toISOString()}" > foo.txt`);
       await execAsync(`git add .`);
-      await execAsync(`git commit --quiet --date "${date}" -m "fake commit"`);
+      await execAsync(
+        `git commit --quiet --date "${date.toISOString()}" -m "fake commit"`
+      );
     }
 
     spinner.succeed();
@@ -105,7 +114,7 @@ module.exports = function({
       )
     );
   })();
-};
+}
 
 function getRandomIntInclusive(min, max) {
   min = Math.ceil(min);
@@ -196,7 +205,7 @@ function createCommitDateList({
   distribution
 }) {
   const commitDateList = [];
-  let currentDate = startDate;
+  let currentDate = new Date(startDate);
 
   while (currentDate <= endDate) {
     // Apply frequency - randomly skip some days based on the frequency percentage
@@ -222,7 +231,7 @@ function createCommitDateList({
             3,
             8,
             12,
-            15, // 0-11
+            15,
             15,
             14,
             12,
@@ -234,10 +243,9 @@ function createCommitDateList({
             0,
             0,
             0,
-            0 // 12-23
+            0
           ];
 
-          // Weighted random selection of hour
           const totalWeight = hourDistribution.reduce(
             (sum, weight) => sum + weight,
             0
@@ -249,7 +257,6 @@ function createCommitDateList({
             if (random <= 0) break;
           }
         } else if (distribution === "afterWork") {
-          // After work hours distribution: more commits in evenings and early morning
           const hourDistribution = [
             3,
             2,
@@ -262,7 +269,7 @@ function createCommitDateList({
             2,
             2,
             1,
-            1, // 0-11
+            1,
             1,
             1,
             1,
@@ -274,10 +281,9 @@ function createCommitDateList({
             18,
             15,
             10,
-            5 // 12-23
+            5
           ];
 
-          // Weighted random selection of hour
           const totalWeight = hourDistribution.reduce(
             (sum, weight) => sum + weight,
             0
@@ -289,7 +295,6 @@ function createCommitDateList({
             if (random <= 0) break;
           }
         } else {
-          // More realistic hour distribution: more commits during work hours
           const hourDistribution = [
             1,
             1,
@@ -302,7 +307,7 @@ function createCommitDateList({
             5,
             8,
             10,
-            12, // 0-11
+            12,
             10,
             15,
             18,
@@ -314,10 +319,9 @@ function createCommitDateList({
             2,
             2,
             1,
-            1 // 12-23
+            1
           ];
 
-          // Weighted random selection of hour
           const totalWeight = hourDistribution.reduce(
             (sum, weight) => sum + weight,
             0
