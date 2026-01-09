@@ -82,10 +82,10 @@ export default function({
       }).format(date);
       spinner.text = `Generating your Github activity... (${dateFormatted})\n`;
 
-      await execAsync(`echo "${date.toISOString()}" > foo.txt`);
+      await execAsync(`echo "${date.toString()}" > foo.txt`);
       await execAsync(`git add .`);
       await execAsync(
-        `git commit --quiet --date "${date.toISOString()}" -m "fake commit"`
+        `git commit --quiet --date "${date.toString()}" -m "fake commit"`
       );
     }
 
