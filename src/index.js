@@ -82,11 +82,9 @@ export default function({
       }).format(date);
       spinner.text = `Generating your Github activity... (${dateFormatted})\n`;
 
-      await execAsync(`echo "${date.toString()}" > foo.txt`);
+      await execAsync(`echo "${date}" > foo.txt`);
       await execAsync(`git add .`);
-      await execAsync(
-        `git commit --quiet --date "${date.toString()}" -m "fake commit"`
-      );
+      await execAsync(`git commit --quiet --date "${date}" -m "fake commit"`);
     }
 
     spinner.succeed();
@@ -205,7 +203,7 @@ function createCommitDateList({
   distribution
 }) {
   const commitDateList = [];
-  let currentDate = new Date(startDate);
+  let currentDate = startDate;
 
   while (currentDate <= endDate) {
     // Apply frequency - randomly skip some days based on the frequency percentage
@@ -257,6 +255,8 @@ function createCommitDateList({
             if (random <= 0) break;
           }
         } else if (distribution === "afterWork") {
+          // After work hours distribution: more commits
+          // in evenings and early mornings
           const hourDistribution = [
             3,
             2,
@@ -295,6 +295,8 @@ function createCommitDateList({
             if (random <= 0) break;
           }
         } else {
+          // More realistic hour distribution: more
+          //  commits during work hours
           const hourDistribution = [
             1,
             1,
@@ -307,7 +309,7 @@ function createCommitDateList({
             5,
             8,
             10,
-            12,
+            12, // 0-11
             10,
             15,
             18,
@@ -319,9 +321,10 @@ function createCommitDateList({
             2,
             2,
             1,
-            1
+            1 // 12-23
           ];
 
+          // Weighted random selection of hour
           const totalWeight = hourDistribution.reduce(
             (sum, weight) => sum + weight,
             0

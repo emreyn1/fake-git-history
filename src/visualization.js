@@ -1,52 +1,156 @@
 import chalk from "chalk";
-import { format, differenceInDays } from "date-fns";
+import { format, getDay, differenceInDays, addDays } from "date-fns";
 
+/**
+ * Generate a visualization of the activity graph
+ * @param {Array} commitDateList - List of commit dates
+ * @param {Date} startDate - Start date
+ * @param {Date} endDate - End date
+ * @returns {String} - Visualization of the activity graph
+ */
 export default function generateActivityVisualization(
-  commitDates,
+  commitDateList,
   startDate,
   endDate
 ) {
-  const days = differenceInDays(endDate, startDate) + 1;
-  const weeks = Math.ceil(days / 7);
-
-  // Create a map of date to commit count
-  const commitCountMap = commitDates.reduce((map, date) => {
-    const dateStr = format(date, "yyyy-MM-dd");
-    map[dateStr] = (map[dateStr] || 0) + 1;
-    return map;
-  }, {});
-
-  // Generate the grid
-  let grid = "";
-  for (let week = 0; week < weeks; week++) {
-    for (let day = 0; day < 7; day++) {
-      const currentDate = new Date(startDate);
-      currentDate.setDate(currentDate.getDate() + week * 7 + day);
-      if (currentDate > endDate) break;
-
-      const dateStr = format(currentDate, "yyyy-MM-dd");
-      const count = commitCountMap[dateStr] || 0;
-
-      let color;
-      if (count === 0) color = chalk.gray;
-      else if (count <= 2) color = chalk.green;
-      else if (count <= 4) color = chalk.greenBright;
-      else if (count <= 6) color = chalk.yellow;
-      else color = chalk.red;
-
-      grid += color("█ ");
+  // Count commits by day
+  const commitsByDay = {};
+  commitDateList.forEach(date => {
+    const dateKey = format(date, "yyyy-MM-dd");
+    if (!commitsByDay[dateKey]) {
+      commitsByDay[dateKey] = 0;
     }
-    grid += "\n";
+    commitsByDay[dateKey]++;
+  });
+
+  // Get the max number of commits in a day
+  let maxCommitsInDay = 0;
+  Object.values(commitsByDay).forEach(count => {
+    if (count > maxCommitsInDay) {
+      maxCommitsInDay = count;
+    }
+  });
+
+  // Generate a list of all days between start and end date
+  const totalDays = differenceInDays(endDate, startDate) + 1;
+  const days = [];
+  for (let i = 0; i < totalDays; i++) {
+    days.push(addDays(startDate, i));
   }
 
-  // Add legend
-  const legend = `
-${chalk.gray("█")} No commits   ${chalk.green(
-    "█"
-  )} 1-2 commits   ${chalk.greenBright("█")} 3-4 commits   ${chalk.yellow(
-    "█"
-  )} 5-6 commits   ${chalk.red("█")} 7+ commits
-`;
+  // Calculate the number of weeks
+  const totalWeeks = Math.ceil(totalDays / 7);
 
-  return grid + legend;
+  // Track month positions for labels
+  const monthLabelPositions = [];
+  let currentMonth = null;
+  days.forEach((day, index) => {
+    const month = format(day, "MMM");
+    const week = Math.floor(index / 7);
+    if (month !== currentMonth) {
+      monthLabelPositions.push({ month, week });
+      currentMonth = month;
+    }
+  });
+
+  // Build the visualization
+  const result = [];
+
+  // Add a title
+  result.push(
+    chalk.bold.green("This is what you will see on your GitHub profile:")
+  );
+  result.push("");
+
+  // Create month labels row
+  let monthRow = "     "; // Space for day labels
+  for (let i = 0; i < monthLabelPositions.length; i++) {
+    const { month, week } = monthLabelPositions[i];
+
+    // Add the month label
+    monthRow += month;
+
+    if (i < monthLabelPositions.length - 1) {
+      // Add spaces to align with the next month or fill to the end
+      const nextMonthWeek =
+        monthLabelPositions.find(m => m.week > week)?.week || totalWeeks;
+      const spacesToAdd = (nextMonthWeek - week - 1) * 1.7;
+      monthRow += " ".repeat(spacesToAdd);
+    }
+  }
+  result.push(monthRow);
+
+  // Create day rows with contribution cells
+  const dayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+  // GitHub-like intensity blocks using Unicode characters
+  const intensityBlocks = [
+    chalk.hex("#fdfdfd")("■"), // Empty/no commits (white square)
+    chalk.hex("#7feebb")("■"), // Few commits (light green)
+    chalk.hex("#4ac26b")("■"), // Some commits (medium green)
+    chalk.hex("#2da44e")("■"), // Many commits (darker green)
+    chalk.hex("#116329")("■") // Most commits (darkest green)
+  ];
+
+  // Organize days by day of week and week number
+  const calendar = Array(7)
+    .fill()
+    .map(() => Array(totalWeeks).fill(null));
+
+  days.forEach((day, index) => {
+    const dayOfWeek = getDay(day); // 0 = Sunday, 1 = Monday, etc.
+    const week = Math.floor(index / 7);
+    calendar[dayOfWeek][week] = day;
+  });
+
+  // Generate rows for each day of the week
+  for (let dayOfWeek = 0; dayOfWeek < 7; dayOfWeek++) {
+    let row = chalk.bold(dayLabels[dayOfWeek]) + " ";
+
+    for (let week = 0; week < totalWeeks; week++) {
+      const day = calendar[dayOfWeek][week];
+
+      if (day) {
+        const dateKey = format(day, "yyyy-MM-dd");
+
+        // If there are no commits on this day
+        if (!commitsByDay[dateKey]) {
+          row += intensityBlocks[0] + " "; // No activity square
+        } else {
+          // There are commits on this day
+          const commitCount = commitsByDay[dateKey];
+
+          // Calculate intensity level (0-4)
+          const intensity = Math.min(
+            Math.ceil((commitCount / maxCommitsInDay) * 4),
+            4
+          );
+          row += intensityBlocks[intensity] + " ";
+        }
+      } else {
+        row += "  "; // No day (outside the date range)
+      }
+    }
+    result.push(row);
+  }
+
+  result.push("");
+  // Add a legend
+  result.push(
+    `Legend: ${intensityBlocks[0]} No commits  ${intensityBlocks[1]} Few  ${intensityBlocks[2]} Some  ${intensityBlocks[3]} Many  ${intensityBlocks[4]} Most`
+  );
+  result.push("");
+
+  // Add statistics
+  result.push("Statistics");
+  result.push(`• Total commits: ${commitDateList.length}`);
+  result.push(
+    `• Date range: ${format(startDate, "yyyy-MM-dd")} to ${format(
+      endDate,
+      "yyyy-MM-dd"
+    )}`
+  );
+  result.push(`• Max commits in a day: ${maxCommitsInDay}`);
+
+  return result.join("\n");
 }
