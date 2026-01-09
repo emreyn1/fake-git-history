@@ -31,7 +31,7 @@ const cli = meow(
     flags: {
       startDate: {
         type: "string",
-        shortFlag: "s" // alias yerine shortFlag
+        shortFlag: "s"
       },
       endDate: {
         type: "string",
